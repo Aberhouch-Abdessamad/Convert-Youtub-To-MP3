@@ -1,50 +1,33 @@
-document.getElementById('convertBtn').addEventListener('click', function() {
-    const youtubeUrl = document.getElementById('youtubeUrl').value;
+document.getElementById('convertBtn').addEventListener('click', async function() {
+    const fileInput = document.getElementById('videoFile');
     const resultDiv = document.getElementById('result');
 
-    if (!youtubeUrl) {
-        alert('Please enter a YouTube URL');
+    if (!fileInput.files.length) {
+        alert('Please upload a video file');
         return;
     }
 
-    // Validate YouTube URL (simple validation)
-    if (!youtubeUrl.includes('youtube.com/') && !youtubeUrl.includes('youtu.be/')) {
-        alert('Please enter a valid YouTube URL');
-        return;
-    }
+    const file = fileInput.files[0];
+    resultDiv.innerHTML = `<p>Converting...</p>`;
 
-    resultDiv.innerHTML = `
-        <p>Converting...</p>
-        <div class="progress-bar">
-            <span class="progress" style="width: 0%"></span>
-        </div>
+    // Use ffmpeg.js (assuming it's included in your project)
+    const ffmpeg = FFmpeg.createFFmpeg({ log: true });
+    await ffmpeg.load();
+
+    // Load the video file into ffmpeg
+    ffmpeg.FS('writeFile', 'input.mp4', new Uint8Array(await file.arrayBuffer()));
+
+    // Run the conversion command
+    await ffmpeg.run('-i', 'input.mp4', 'output.mp3');
+
+    // Retrieve the converted file
+    const data = ffmpeg.FS('readFile', 'output.mp3');
+
+    // Create a Blob from the output and generate a download link
+    const blob = new Blob([data.buffer], { type: 'audio/mp3' });
+    const url = URL.createObjectURL(blob);
+    resultDiv.innerHTML = ` 
+        <p>Conversion complete!</p>
+        <a href="${url}" download="converted_audio.mp3">Download converted_audio.mp3</a>
     `;
-
-    const progressBar = resultDiv.querySelector('.progress');
-    let progress = 0;
-
-    // Simulate conversion process
-    const interval = setInterval(() => {
-        progress += 10;
-        progressBar.style.width = `${progress}%`;
-
-        if (progress >= 100) {
-            clearInterval(interval);
-            
-            // Create an empty MP3 file
-            const fileName = 'converted_audio.mp3';
-            // This array represents the minimal MP3 file structure
-            const emptyMp3 = new Uint8Array([
-                0xFF, 0xFB, 0x90, 0x44, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-            ]);
-            const blob = new Blob([emptyMp3], {type: 'audio/mpeg'});
-            const url = URL.createObjectURL(blob);
-
-            resultDiv.innerHTML = `
-                <p>Conversion complete!</p>
-                <a href="${url}" download="${fileName}">Download ${fileName}</a>
-            `;
-        }
-    }, 500);
 });
